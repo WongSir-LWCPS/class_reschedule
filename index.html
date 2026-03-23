@@ -113,7 +113,7 @@
       // --- 螢幕尺寸監聽 ---
       useEffect(() => {
         const handleResize = () => {
-          if (window.innerWidth < 640 && viewMode === 'week') setViewMode('day');
+          if (viewMode === 'week') setViewMode('day');
         };
         handleResize();
         window.addEventListener('resize', handleResize);
