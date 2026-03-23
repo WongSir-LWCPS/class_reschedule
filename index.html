@@ -110,15 +110,6 @@
         setIsSyncing(false);
       };
 
-      // --- 螢幕尺寸監聽 ---
-      useEffect(() => {
-        const handleResize = () => {
-          if (viewMode === 'week') setViewMode('day');
-        };
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-      }, [viewMode]);
 
       // --- 日曆運算 ---
       const getStartOfWeek = (date) => {
