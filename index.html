@@ -2,34 +2,31 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>調堂系統 v1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>調堂系統 v3.1 (RWD 修正版)</title>
   
-  <!-- 載入 React 與 Tailwind CSS 引擎 -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    /* 讓畫面填滿 Google Sites 的區塊 */
-    body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+    body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background-color: #f3f4f6; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .smooth-scroll { scroll-behavior: smooth; }
   </style>
 </head>
 <body>
   
-  <!-- 系統會渲染在這個區塊 -->
   <div id="root"></div>
 
-  <!-- React 應用程式原始碼 -->
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // === 1. 系統設定 (已為你帶入專屬 API 網址) ===
     const API_URL = 'https://script.google.com/macros/s/AKfycbz-r3TuJSyiQ8LV_VIjX64oNpSYrJbva72lvUNeK4V2uQ-I1-4KI8W1dDyCY2gjpmNQ/exec';
-    const SETTINGS_PASSWORD = '535800'; // 設定頁面密碼
+    const SETTINGS_PASSWORD = '535800'; 
 
-    // === 2. 內建 SVG 圖示 ===
     const Icons = {
       ChevronLeft: ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg>,
       ChevronRight: ({size=20}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>,
@@ -45,7 +42,6 @@
       AlertTriangle: ({size=20, className=""}) => <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
     };
 
-    // 預設資料
     const initialSlots = [
       { id: 's1', name: '課前一', time: '07:30-07:45', isOpen: true, days: [1,2,3,4,5] },
       { id: 's4', name: '第一節', time: '08:25-08:55', isOpen: true, days: [1,2,3,4,5] },
@@ -53,7 +49,6 @@
     ];
     const pastelColors = ['bg-red-100 border-red-200 text-red-800', 'bg-blue-100 border-blue-200 text-blue-800', 'bg-green-100 border-green-200 text-green-800', 'bg-yellow-100 border-yellow-200 text-yellow-800', 'bg-purple-100 border-purple-200 text-purple-800', 'bg-pink-100 border-pink-200 text-pink-800'];
 
-    // === 主程式元件 ===
     function App() {
       const [isAppLoading, setIsAppLoading] = useState(true);
       const [isSyncing, setIsSyncing] = useState(false);
@@ -78,19 +73,14 @@
       const [editingRecord, setEditingRecord] = useState(null);
       const [selectedSlotInfo, setSelectedSlotInfo] = useState(null);
 
-      // 密碼與驗證狀態
       const [isSettingsUnlocked, setIsSettingsUnlocked] = useState(false);
       const [showPwdModal, setShowPwdModal] = useState(false);
       const [pwdInput, setPwdInput] = useState('');
       const [pwdError, setPwdError] = useState('');
 
-      // --- 載入與同步資料邏輯 ---
+      // --- 資料載入 ---
       useEffect(() => {
-        if (!API_URL) {
-          setIsAppLoading(false);
-          return;
-        }
-        
+        if (!API_URL) { setIsAppLoading(false); return; }
         fetch(API_URL + "?action=getData")
           .then(res => res.json())
           .then(res => {
@@ -110,30 +100,27 @@
         setIsSyncing(true);
         try {
           await fetch(API_URL, {
-            method: 'POST',
-            redirect: 'follow',
+            method: 'POST', redirect: 'follow',
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({ type, data: dataToSync })
           });
         } catch (e) {
           console.error("同步失敗", e);
-          alert("⚠️ 同步至雲端失敗，請檢查網路連線或稍後再試。");
         }
         setIsSyncing(false);
       };
 
-      // --- 初始化與事件監聽 ---
+      // --- 螢幕尺寸監聽 ---
       useEffect(() => {
         const handleResize = () => {
-          if (window.innerWidth < 768) setViewMode('day');
-          else setViewMode('week');
+          if (window.innerWidth < 640 && viewMode === 'week') setViewMode('day');
         };
-        handleResize(); 
+        handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-      }, []);
+      }, [viewMode]);
 
-      // --- 日曆運算邏輯 ---
+      // --- 日曆運算 ---
       const getStartOfWeek = (date) => {
         const d = new Date(date);
         const day = d.getDay();
@@ -144,9 +131,7 @@
       const currentWeekDays = useMemo(() => {
         const start = getStartOfWeek(currentDate);
         return Array.from({ length: 5 }).map((_, i) => { 
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          return d;
+          const d = new Date(start); d.setDate(start.getDate() + i); return d;
         });
       }, [currentDate]);
 
@@ -176,167 +161,91 @@
       const goToToday = () => setCurrentDate(new Date());
 
       // --- 記錄操作 ---
-      const openAddModal = (date, slotId) => {
-        setSelectedSlotInfo({ date: formatDateStr(date), slotId });
-        setEditingRecord(null);
-        setIsModalOpen(true);
-      };
-
-      const openEditModal = (record) => {
-        setEditingRecord(record);
-        setIsModalOpen(true);
-      };
-
+      const openAddModal = (date, slotId) => { setSelectedSlotInfo({ date: formatDateStr(date), slotId }); setEditingRecord(null); setIsModalOpen(true); };
+      const openEditModal = (record) => { setEditingRecord(record); setIsModalOpen(true); };
       const saveRecord = (formData) => {
         let newRecords;
-        if (editingRecord) {
-          newRecords = records.map(r => r.id === editingRecord.id ? { ...r, ...formData } : r);
-        } else {
-          const newRecord = {
-            ...formData,
-            id: `r_${Date.now()}`,
-            date: selectedSlotInfo.date,
-            slotId: selectedSlotInfo.slotId,
-            color: pastelColors[Math.floor(Math.random() * pastelColors.length)]
-          };
-          newRecords = [...records, newRecord];
-        }
-        setRecords(newRecords);
-        syncToCloud('records', newRecords);
-        setIsModalOpen(false);
+        if (editingRecord) { newRecords = records.map(r => r.id === editingRecord.id ? { ...r, ...formData } : r); } 
+        else { newRecords = [...records, { ...formData, id: `r_${Date.now()}`, date: selectedSlotInfo.date, slotId: selectedSlotInfo.slotId, color: pastelColors[Math.floor(Math.random() * pastelColors.length)] }]; }
+        setRecords(newRecords); syncToCloud('records', newRecords); setIsModalOpen(false);
       };
+      const deleteRecord = (id) => { const newRecords = records.filter(r => r.id !== id); setRecords(newRecords); syncToCloud('records', newRecords); setIsModalOpen(false); };
 
-      const deleteRecord = (id) => {
-        const newRecords = records.filter(r => r.id !== id);
-        setRecords(newRecords);
-        syncToCloud('records', newRecords);
-        setIsModalOpen(false);
-      };
-
-      // --- 設定與系統操作 ---
+      // --- 設定操作 ---
       const handleSettingsClick = () => {
-        if (activeTab === 'settings') {
-          setActiveTab('calendar');
-        } else {
-          if (isSettingsUnlocked) {
-            setActiveTab('settings');
-          } else {
-            setPwdInput('');
-            setPwdError('');
-            setShowPwdModal(true);
-          }
-        }
+        if (activeTab === 'settings') setActiveTab('calendar');
+        else if (isSettingsUnlocked) setActiveTab('settings');
+        else { setPwdInput(''); setPwdError(''); setShowPwdModal(true); }
       };
-
       const verifyPassword = (e) => {
         e.preventDefault();
-        if (pwdInput === SETTINGS_PASSWORD) {
-          setIsSettingsUnlocked(true);
-          setShowPwdModal(false);
-          setActiveTab('settings');
-        } else {
-          setPwdError('密碼錯誤，請重新輸入');
-          setPwdInput('');
-        }
+        if (pwdInput === SETTINGS_PASSWORD) { setIsSettingsUnlocked(true); setShowPwdModal(false); setActiveTab('settings'); } 
+        else { setPwdError('密碼錯誤'); setPwdInput(''); }
       };
-
-      const handleUpdateTeachers = (newTeachersList) => {
-        setTeachers(newTeachersList);
-        syncToCloud('teachers', newTeachersList);
-      };
-      const handleUpdateClasses = (newClassesList) => {
-        setClasses(newClassesList);
-        syncToCloud('classes', newClassesList);
-      };
-      const handleUpdateSlots = (newSlotsList) => {
-        setSlots(newSlotsList);
-        syncToCloud('slots', newSlotsList);
-      };
-
-      const handleCleanupRecords = () => {
-        if (!cleanupDate) {
-          alert("請先選擇一個日期！");
-          return;
-        }
-        const confirmMsg = `⚠️ 警告：這將會永久刪除 ${cleanupDate} 之前的所有調堂記錄！\n\n確定要繼續嗎？`;
-        if (window.confirm(confirmMsg)) {
-          const newRecords = records.filter(r => r.date >= cleanupDate);
-          const deletedCount = records.length - newRecords.length;
-          setRecords(newRecords);
-          syncToCloud('records', newRecords);
-          alert(`✅ 清理完成！共刪除了 ${deletedCount} 筆舊記錄。`);
-          setCleanupDate('');
-        }
-      };
-
-      const handleDragStart = (e, index) => {
-        setDraggedIdx(index);
-        e.dataTransfer.effectAllowed = "move";
-      };
-      const handleDragOver = (e, index) => { e.preventDefault(); };
-      const handleDrop = (e, index) => {
-        e.preventDefault();
-        if (draggedIdx === null || draggedIdx === index) return;
-        const newSlots = [...slots];
-        const draggedItem = newSlots[draggedIdx];
-        newSlots.splice(draggedIdx, 1);
-        newSlots.splice(index, 0, draggedItem);
-        handleUpdateSlots(newSlots);
-        setDraggedIdx(null);
-      };
-      const updateSlot = (id, field, value) => {
-        const newSlots = slots.map(s => s.id === id ? { ...s, [field]: value } : s);
-        handleUpdateSlots(newSlots);
-      };
-      const addSlot = () => {
-        const newSlot = { id: `s_${Date.now()}`, name: '新課節', time: '00:00-00:00', isOpen: true, days: [1,2,3,4,5] };
-        handleUpdateSlots([...slots, newSlot]);
-      };
+      const handleUpdateTeachers = (data) => { setTeachers(data); syncToCloud('teachers', data); };
+      const handleUpdateClasses = (data) => { setClasses(data); syncToCloud('classes', data); };
+      const handleUpdateSlots = (data) => { setSlots(data); syncToCloud('slots', data); };
+      
+      // 修復：新增這三個原本遺漏的課節操作函式
+      const addSlot = () => { handleUpdateSlots([...slots, { id: 's' + Date.now(), name: '新課節', time: '', isOpen: true, days: [1,2,3,4,5] }]); };
+      const updateSlot = (id, field, value) => { handleUpdateSlots(slots.map(s => s.id === id ? { ...s, [field]: value } : s)); };
       const removeSlot = (id) => { handleUpdateSlots(slots.filter(s => s.id !== id)); };
 
-      // === 畫面區塊渲染 ===
-      if (isAppLoading) {
-        return <div className="h-screen w-full flex items-center justify-center bg-gray-50"><div className="text-blue-600 font-bold text-xl animate-pulse">系統載入中...</div></div>;
-      }
+      const handleCleanupRecords = () => {
+        if (!cleanupDate) { alert("請先選擇一個日期！"); return; }
+        if (window.confirm(`⚠️ 警告：這將會永久刪除 ${cleanupDate} 之前的所有調堂記錄！\n\n確定要繼續嗎？`)) {
+          const newRecords = records.filter(r => r.date >= cleanupDate);
+          setRecords(newRecords); syncToCloud('records', newRecords);
+          alert(`✅ 清理完成！`); setCleanupDate('');
+        }
+      };
+
+      const handleDragStart = (e, index) => { setDraggedIdx(index); e.dataTransfer.effectAllowed = "move"; };
+      const handleDrop = (e, index) => {
+        e.preventDefault(); if (draggedIdx === null || draggedIdx === index) return;
+        const newSlots = [...slots]; const draggedItem = newSlots[draggedIdx];
+        newSlots.splice(draggedIdx, 1); newSlots.splice(index, 0, draggedItem);
+        handleUpdateSlots(newSlots); setDraggedIdx(null);
+      };
+
+      // === RENDER ===
+      if (isAppLoading) return <div className="h-screen w-full flex items-center justify-center bg-gray-50"><div className="text-blue-600 font-bold text-xl animate-pulse">系統載入中...</div></div>;
 
       const renderHeader = () => (
-        <div className="bg-[#1e2336] text-white flex flex-col shadow-md relative z-10">
-          {/* 同步進度條 */}
-          {isSyncing && (
-            <div className="absolute top-0 left-0 w-full h-1 bg-blue-900 overflow-hidden">
-              <div className="h-full bg-blue-400 animate-pulse w-full"></div>
-            </div>
-          )}
-
-          {/* 大標題 */}
-          <div className="text-center pt-3 sm:pt-4 pb-1 text-lg sm:text-xl font-bold tracking-wider w-full">
+        <div className="bg-[#1e2336] text-white flex flex-col shadow-md relative z-50">
+          {isSyncing && <div className="absolute top-0 left-0 w-full h-1 bg-blue-900 overflow-hidden"><div className="h-full bg-blue-400 animate-pulse w-full"></div></div>}
+          <div className="text-center pt-3 pb-1 text-base sm:text-xl font-bold tracking-wider w-full px-2 truncate">
             樂華天主教小學 - 調堂記錄表
           </div>
-
-          {/* 控制面板 */}
-          <div className="p-3 sm:p-4 pt-2 flex flex-col sm:flex-row justify-between items-center w-full">
-            
-            {/* 左側：日期導覽按鈕 */}
-            <div className="flex items-center space-x-2 mb-2 sm:mb-0">
-              <button onClick={prevDate} className="p-1 hover:bg-slate-700 rounded"><Icons.ChevronLeft /></button>
-              <button onClick={goToToday} className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded">今日</button>
-              <button className="p-1 hover:bg-slate-700 rounded relative group">
-                  <Icons.Calendar />
-                  <input type="date" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setCurrentDate(new Date(e.target.value))} />
-              </button>
-              <button onClick={nextDate} className="p-1 hover:bg-slate-700 rounded"><Icons.ChevronRight /></button>
+          <div className="p-2 sm:p-4 pt-1 sm:pt-2 flex flex-col sm:flex-row justify-between items-center w-full gap-2 sm:gap-0">
+            <div className="flex items-center space-x-1 sm:space-x-2 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center">
+                <button onClick={prevDate} className="p-2 sm:p-1 hover:bg-slate-700 rounded"><Icons.ChevronLeft /></button>
+                <button onClick={goToToday} className="px-3 py-1.5 sm:py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded mx-1 font-medium">今日</button>
+                <button className="p-2 sm:p-1 hover:bg-slate-700 rounded relative group flex items-center">
+                    <Icons.Calendar />
+                    <input type="date" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onChange={(e) => setCurrentDate(new Date(e.target.value))} />
+                </button>
+                <button onClick={nextDate} className="p-2 sm:p-1 hover:bg-slate-700 rounded"><Icons.ChevronRight /></button>
+              </div>
+              
+              <div className="sm:hidden flex space-x-1">
+                 <button onClick={() => {setViewMode('week'); setActiveTab('calendar');}} className={`px-2 py-1 text-xs rounded ${viewMode === 'week' && activeTab === 'calendar' ? 'bg-blue-600' : 'bg-slate-800'}`}>週</button>
+                 <button onClick={() => {setViewMode('day'); setActiveTab('calendar');}} className={`px-2 py-1 text-xs rounded ${viewMode === 'day' && activeTab === 'calendar' ? 'bg-blue-600' : 'bg-slate-800'}`}>日</button>
+                 <button onClick={handleSettingsClick} className={`px-2 py-1 rounded flex items-center justify-center ${activeTab === 'settings' ? 'bg-blue-600' : 'bg-slate-800'}`}>
+                   {activeTab === 'settings' ? <Icons.Home size={14} /> : <Icons.Settings size={14} />}
+                 </button>
+              </div>
             </div>
 
-            {/* 中間：顯示當前年月 */}
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-widest italic">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-widest italic">
                 {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月
               </h1>
               {isSyncing && <Icons.CloudSync className="animate-bounce text-blue-300" />}
             </div>
 
-            {/* 右側：模式切換及設定按鈕 */}
-            <div className="flex space-x-2 mt-2 sm:mt-0">
+            <div className="hidden sm:flex space-x-2">
               <div className="bg-slate-900 rounded flex p-1">
                 <button onClick={() => {setViewMode('week'); setActiveTab('calendar');}} className={`px-3 py-1 text-sm rounded ${viewMode === 'week' && activeTab === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>週</button>
                 <button onClick={() => {setViewMode('day'); setActiveTab('calendar');}} className={`px-3 py-1 text-sm rounded ${viewMode === 'day' && activeTab === 'calendar' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>日</button>
@@ -349,66 +258,40 @@
         </div>
       );
 
-      const renderPasswordModal = () => {
-        if (!showPwdModal) return null;
-        return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-[fadeIn_0.2s_ease-out]">
-              <div className="bg-[#1e2336] text-white p-4 flex items-center gap-2">
-                <Icons.Lock size={20} />
-                <h3 className="font-bold text-lg">安全驗證</h3>
-                <button onClick={() => setShowPwdModal(false)} className="ml-auto hover:bg-slate-700 p-1 rounded"><Icons.X /></button>
-              </div>
-              <form onSubmit={verifyPassword} className="p-6">
-                <p className="text-sm text-gray-600 mb-4">請輸入密碼以進入系統設定頁面：</p>
-                <input 
-                  type="password" 
-                  autoFocus
-                  value={pwdInput} 
-                  onChange={(e) => { setPwdInput(e.target.value); setPwdError(''); }} 
-                  placeholder="請輸入密碼" 
-                  className={`w-full border p-3 rounded-lg text-center tracking-widest text-lg focus:outline-none focus:ring-2 ${pwdError ? 'border-red-500 focus:ring-red-200' : 'focus:ring-blue-500'}`}
-                />
-                {pwdError && <p className="text-red-500 text-sm font-bold mt-2 text-center">{pwdError}</p>}
-                <div className="mt-6 flex gap-3">
-                  <button type="button" onClick={() => setShowPwdModal(false)} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-bold hover:bg-gray-50">取消</button>
-                  <button type="submit" className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-md">確認</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      };
-
       const renderCalendarView = () => {
         const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
-        const gridColsClass = viewMode === 'week' ? 'grid-cols-[6rem_repeat(5,minmax(0,1fr))]' : 'grid-cols-[6rem_minmax(0,1fr)]';
+        const gridColsClass = viewMode === 'week' 
+          ? 'grid-cols-[4.5rem_repeat(5,minmax(140px,1fr))] sm:grid-cols-[5.5rem_repeat(5,minmax(0,1fr))]' 
+          : 'grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_minmax(0,1fr)]';
 
         return (
-          <div className="flex-1 overflow-auto bg-gray-50 p-2 sm:p-4">
-            <div className="bg-white border rounded-lg shadow-sm overflow-hidden min-w-[800px]">
-              <div className={`grid border-b bg-blue-600 text-white ${gridColsClass}`}>
-                <div className="border-r border-blue-500 p-3 text-center font-bold flex flex-col justify-center">節數</div>
+          <div className="flex-1 overflow-x-auto overflow-y-auto bg-gray-50 smooth-scroll relative">
+            <div className="bg-white min-h-full sm:min-w-0 min-w-max flex flex-col">
+              
+              <div className={`grid border-b bg-blue-600 text-white sticky top-0 z-30 shadow-sm ${gridColsClass}`}>
+                <div className="border-r border-blue-500 p-2 text-center font-bold flex flex-col justify-center sticky left-0 z-40 bg-blue-700 text-sm sm:text-base">
+                  節數
+                </div>
                 {displayedDays.map(day => (
-                  <div key={day.toString()} className="border-r border-blue-500 p-3 text-center min-w-0">
-                    <div className="text-sm font-medium opacity-80">星期{daysOfWeek[day.getDay()]}</div>
-                    <div className="text-2xl font-black">{day.getDate()}日</div>
+                  <div key={day.toString()} className="border-r border-blue-500 p-2 sm:p-3 text-center min-w-0">
+                    <div className="text-xs sm:text-sm font-medium opacity-90">星期{daysOfWeek[day.getDay()]}</div>
+                    <div className="text-xl sm:text-2xl font-black">{day.getDate()}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="flex flex-col">
+              <div className="flex flex-col flex-1">
                 {slots.map((slot) => (
-                  <div key={slot.id} className={`grid border-b min-h-[80px] ${gridColsClass}`}>
-                    <div className="border-r p-2 flex flex-col items-center justify-center bg-gray-50">
-                      <span className="font-bold text-sm text-slate-700 text-center">{slot.name}</span>
-                      <span className="text-xs text-slate-500 text-center">{slot.time}</span>
+                  <div key={slot.id} className={`grid border-b min-h-[80px] sm:min-h-[90px] ${gridColsClass}`}>
+                    
+                    <div className="border-r p-1 sm:p-2 flex flex-col items-center justify-center bg-gray-50 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] border-r-gray-200">
+                      <span className="font-bold text-xs sm:text-sm text-slate-700 text-center leading-tight">{slot.name}</span>
+                      <span className="text-[10px] sm:text-xs text-slate-500 text-center mt-1 scale-90 sm:scale-100">{slot.time}</span>
                     </div>
 
                     {displayedDays.map(day => {
                       const dateStr = formatDateStr(day);
-                      const dayOfWeek = day.getDay();
-                      const isApplicable = slot.days.includes(dayOfWeek);
+                      const isApplicable = slot.days.includes(day.getDay());
                       
                       if (!isApplicable || !slot.isOpen) {
                         return <div key={dateStr} className="border-r bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#f3f4f6_10px,#f3f4f6_20px)] min-w-0 h-full"></div>;
@@ -418,26 +301,30 @@
 
                       return (
                         <div key={dateStr} 
-                             className="border-r p-1.5 relative group hover:bg-blue-50/50 transition-colors flex flex-col gap-1.5 cursor-pointer min-w-0 h-full"
+                             className="border-r p-1.5 sm:p-2 relative group hover:bg-blue-50/50 transition-colors flex flex-col gap-1.5 cursor-pointer min-w-0 h-full"
                              onClick={(e) => { if(e.target === e.currentTarget) openAddModal(day, slot.id); }}>
                           
                           {cellRecords.map(record => (
                             <div key={record.id} 
                                  onClick={(e) => { e.stopPropagation(); openEditModal(record); }}
-                                 className={`px-2 py-1.5 text-sm rounded border shadow-sm ${record.color} cursor-pointer hover:opacity-80 transition-opacity`}>
-                              <div className="font-bold">
+                                 className={`px-1.5 py-1.5 sm:px-2 sm:py-2 text-xs sm:text-sm rounded border shadow-sm ${record.color} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}>
+                              <div className="font-bold leading-snug flex flex-wrap items-center">
+                                {/* 日曆顯示優化：使用箭頭連接多位教師 */}
                                 {record.entries.map((entry, i) => (
-                                  <span key={i}>{entry.teacher}({entry.class}){i < record.entries.length - 1 && '、'}</span>
+                                  <span key={i} className="flex items-center">
+                                    {entry.teacher}({entry.class})
+                                    {i < record.entries.length - 1 && <span className="mx-1 text-gray-500/70 text-[10px] sm:text-xs">➔</span>}
+                                  </span>
                                 ))}
                               </div>
-                              {record.note && <div className="text-xs opacity-80 mt-0.5">{record.note}</div>}
+                              {record.note && <div className="text-[10px] sm:text-xs opacity-80 mt-1 truncate">{record.note}</div>}
                             </div>
                           ))}
 
                           <div onClick={(e) => { e.stopPropagation(); openAddModal(day, slot.id); }}
-                               className={`w-full h-8 border border-dashed border-gray-400 rounded bg-gray-50/50 text-gray-400 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
-                                         ${cellRecords.length > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                            <Icons.Plus />
+                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
+                                         ${cellRecords.length > 0 ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100 opacity-100'}`}>
+                            <Icons.Plus size={14} />
                           </div>
                         </div>
                       );
@@ -451,31 +338,33 @@
       };
 
       const renderSettingsView = () => (
-        <div className="flex-1 overflow-auto bg-gray-50 p-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border overflow-hidden">
-            <div className="flex border-b bg-gray-100 overflow-x-auto hide-scrollbar">
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-2 sm:p-4">
+          <div className="max-w-4xl mx-auto bg-white rounded-lg sm:rounded-xl shadow-sm border overflow-hidden">
+            <div className="flex border-b bg-gray-100 overflow-x-auto hide-scrollbar scroll-smooth">
               {['teachers', 'classes', 'slots', 'system'].map(tab => (
                 <button key={tab} onClick={() => setSettingTab(tab)}
-                        className={`flex-1 min-w-[100px] py-3 text-sm font-bold text-center border-r last:border-0 transition-colors ${settingTab === tab ? 'bg-white text-blue-600 border-b-2 border-b-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}>
-                  {tab === 'teachers' ? '教師設定' : tab === 'classes' ? '班別設定' : tab === 'slots' ? '課節設定' : '系統維護'}
+                        className={`flex-none w-1/4 min-w-[80px] sm:min-w-[100px] py-3 text-xs sm:text-sm font-bold text-center border-r last:border-0 transition-colors ${settingTab === tab ? 'bg-white text-blue-600 border-b-2 border-b-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}>
+                  {tab === 'teachers' ? '教師' : tab === 'classes' ? '班別' : tab === 'slots' ? '課節' : '維護'}
                 </button>
               ))}
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {settingTab === 'teachers' && (
                 <div>
-                  <h3 className="text-lg font-bold mb-4">管理教師名單</h3>
-                  <div className="flex gap-2 mb-6 bg-gray-50 p-4 rounded-lg border">
-                    <input type="text" placeholder="全名" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} className="flex-1 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500"/>
-                    <input type="text" placeholder="簡稱 (例: 陳)" value={newTeacherShort} onChange={e => setNewTeacherShort(e.target.value)} className="w-24 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500"/>
-                    <button onClick={() => { if(newTeacherName && newTeacherShort) { handleUpdateTeachers([...teachers, { id: Date.now(), name: newTeacherName, shortName: newTeacherShort }]); setNewTeacherName(''); setNewTeacherShort(''); } }} className="bg-blue-600 text-white px-4 rounded font-bold hover:bg-blue-700">新增</button>
+                  <h3 className="text-base sm:text-lg font-bold mb-4">管理教師名單</h3>
+                  <div className="flex flex-col sm:flex-row gap-2 mb-6 bg-gray-50 p-3 sm:p-4 rounded-lg border">
+                    <input type="text" placeholder="全名 (例: 陳大文)" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} className="flex-1 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="簡稱 (例: 陳)" value={newTeacherShort} onChange={e => setNewTeacherShort(e.target.value)} className="flex-1 sm:w-24 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+                      <button onClick={() => { if(newTeacherName && newTeacherShort) { handleUpdateTeachers([...teachers, { id: Date.now(), name: newTeacherName, shortName: newTeacherShort }]); setNewTeacherName(''); setNewTeacherShort(''); } }} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 text-sm whitespace-nowrap">新增</button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     {teachers.map(t => (
                       <div key={t.id} className="border p-3 rounded-lg flex justify-between items-center bg-white shadow-sm">
-                        <div><div className="font-bold">{t.shortName}</div><div className="text-xs text-gray-500">{t.name}</div></div>
-                        <button onClick={() => handleUpdateTeachers(teachers.filter(item => item.id !== t.id))} className="text-gray-400 hover:text-red-500"><Icons.Trash2 /></button>
+                        <div><div className="font-bold text-sm">{t.shortName}</div><div className="text-xs text-gray-500">{t.name}</div></div>
+                        <button onClick={() => handleUpdateTeachers(teachers.filter(item => item.id !== t.id))} className="p-2 text-gray-400 hover:text-red-500 active:bg-gray-100 rounded-full"><Icons.Trash2 /></button>
                       </div>
                     ))}
                   </div>
@@ -484,15 +373,15 @@
 
               {settingTab === 'classes' && (
                 <div>
-                  <h3 className="text-lg font-bold mb-4">管理班別</h3>
-                  <div className="flex gap-2 mb-6 bg-gray-50 p-4 rounded-lg border max-w-sm">
-                    <input type="text" placeholder="班別名稱 (例: 1A)" value={newClass} onChange={e => setNewClass(e.target.value)} className="flex-1 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500"/>
-                    <button onClick={() => { if(newClass && !classes.includes(newClass)) { handleUpdateClasses([...classes, newClass]); setNewClass(''); } }} className="bg-blue-600 text-white px-4 rounded font-bold hover:bg-blue-700">新增</button>
+                  <h3 className="text-base sm:text-lg font-bold mb-4">管理班別</h3>
+                  <div className="flex gap-2 mb-6 bg-gray-50 p-3 sm:p-4 rounded-lg border max-w-sm">
+                    <input type="text" placeholder="班別 (例: 1A)" value={newClass} onChange={e => setNewClass(e.target.value)} className="flex-1 border p-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-sm"/>
+                    <button onClick={() => { if(newClass && !classes.includes(newClass)) { handleUpdateClasses([...classes, newClass]); setNewClass(''); } }} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 text-sm">新增</button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {classes.map(c => (
-                      <div key={c} className="border bg-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-sm">
-                        {c} <button onClick={() => handleUpdateClasses(classes.filter(item => item !== c))} className="text-gray-400 hover:text-red-500"><Icons.X size={14} /></button>
+                      <div key={c} className="border bg-white pl-4 pr-1 py-1 rounded-full text-sm font-bold flex items-center gap-1 shadow-sm">
+                        {c} <button onClick={() => handleUpdateClasses(classes.filter(item => item !== c))} className="p-1.5 text-gray-400 hover:text-red-500 rounded-full active:bg-gray-100"><Icons.X size={16} /></button>
                       </div>
                     ))}
                   </div>
@@ -502,48 +391,53 @@
               {settingTab === 'slots' && (
                 <div>
                    <div className="flex justify-between items-center mb-4">
-                     <h3 className="text-xl font-bold">課節列表管理</h3>
-                     <button onClick={addSlot} className="flex items-center gap-1 border border-blue-600 text-blue-600 bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 font-bold text-sm">
-                       <Icons.Plus /> 新增課節
+                     <h3 className="text-base sm:text-lg font-bold">課節列表管理</h3>
+                     <button onClick={addSlot} className="flex items-center gap-1 border border-blue-600 text-blue-600 bg-blue-50 px-3 py-1.5 rounded hover:bg-blue-100 font-bold text-xs sm:text-sm">
+                       <Icons.Plus /> 新增
                      </button>
-                   </div>
-                   <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-lg mb-6 text-sm text-gray-600 leading-relaxed">
-                     💡 系統會自動將修改同步至雲端。按住最左側的圖示上下拖曳可更改順序。
                    </div>
                    <div className="space-y-3 pb-8">
                      {slots.map((slot, index) => (
-                       <div key={slot.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDrop={(e) => handleDrop(e, index)} className={`flex border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm hover:border-gray-300 transition-colors ${draggedIdx === index ? 'opacity-50' : ''}`}>
-                         <div className="w-10 bg-gray-50 flex items-center justify-center cursor-move border-r border-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200">
+                       <div key={slot.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => {e.preventDefault();}} onDrop={(e) => handleDrop(e, index)} 
+                            className={`flex flex-col sm:flex-row border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm hover:border-gray-300 transition-colors ${draggedIdx === index ? 'opacity-50' : ''}`}>
+                         <div className="hidden sm:flex w-10 bg-gray-50 items-center justify-center cursor-move border-r border-gray-100 text-gray-400 hover:text-gray-600 hover:bg-gray-200">
                            <Icons.GripVertical />
                          </div>
-                         <div className="flex-1 p-4">
-                           <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 mb-3">
-                             <div className="flex items-center gap-2 text-gray-400 w-6">
-                               <Icons.GripVertical className="invisible sm:hidden" />
+                         <div className="flex-1 p-3 sm:p-4">
+                           <div className="flex sm:hidden justify-between items-center mb-2 pb-2 border-b border-gray-100">
+                             <div className="text-gray-400 cursor-move p-1"><Icons.GripVertical size={18}/></div>
+                             <div className="flex items-center gap-2">
+                               <label className="flex items-center gap-1.5 cursor-pointer bg-blue-50 px-2.5 py-1 rounded-full">
+                                  <input type="checkbox" checked={slot.isOpen} onChange={(e) => updateSlot(slot.id, 'isOpen', e.target.checked)} className="w-3.5 h-3.5 accent-blue-600 cursor-pointer" />
+                                  <span className="text-xs font-bold text-blue-800">開放</span>
+                               </label>
+                               <button onClick={() => removeSlot(slot.id)} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 rounded-full"><Icons.Trash2 size={16} /></button>
                              </div>
-                             <input type="text" value={slot.name} onChange={(e) => updateSlot(slot.id, 'name', e.target.value)} placeholder="課節名稱" className="border p-2 rounded w-40 sm:w-48 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500" />
-                             <input type="text" value={slot.time} onChange={(e) => updateSlot(slot.id, 'time', e.target.value)} placeholder="時間" className="border p-2 rounded w-40 text-gray-600 outline-none focus:ring-2 focus:ring-blue-500" />
+                           </div>
+
+                           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-3">
+                             <input type="text" value={slot.name} onChange={(e) => updateSlot(slot.id, 'name', e.target.value)} placeholder="課節名稱" className="border p-2 rounded w-full sm:w-48 font-bold text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500" />
+                             <input type="text" value={slot.time} onChange={(e) => updateSlot(slot.id, 'time', e.target.value)} placeholder="時間" className="border p-2 rounded w-full sm:w-40 text-sm text-gray-600 outline-none focus:ring-2 focus:ring-blue-500" />
                              
-                             <div className="flex items-center gap-4 ml-auto">
+                             <div className="hidden sm:flex items-center gap-4 ml-auto">
                                <label className="flex items-center gap-2 cursor-pointer bg-blue-50 px-3 py-1.5 rounded-full">
                                   <input type="checkbox" checked={slot.isOpen} onChange={(e) => updateSlot(slot.id, 'isOpen', e.target.checked)} className="w-4 h-4 accent-blue-600 cursor-pointer" />
                                   <span className="text-sm font-bold text-blue-800">開放填寫</span>
                                </label>
-                               <button onClick={() => removeSlot(slot.id)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 rounded-full hover:bg-red-50">
-                                  <Icons.Trash2 size={18} />
-                               </button>
+                               <button onClick={() => removeSlot(slot.id)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 rounded-full hover:bg-red-50"><Icons.Trash2 size={18} /></button>
                              </div>
                            </div>
-                           <div className="flex flex-wrap items-center gap-4 text-sm pl-8">
-                             <span className="text-gray-500 font-medium">適用日子：</span>
-                             <div className="flex flex-wrap gap-4">
+                           
+                           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm sm:pl-0">
+                             <span className="text-xs sm:text-sm text-gray-500 font-medium">適用日子：</span>
+                             <div className="flex flex-wrap gap-x-4 gap-y-2">
                                {[1,2,3,4,5].map(d => (
                                  <label key={d} className="flex items-center gap-1.5 cursor-pointer">
                                    <input type="checkbox" checked={slot.days.includes(d)} onChange={(e) => {
                                        const newDays = e.target.checked ? [...slot.days, d].sort() : slot.days.filter(day => day !== d);
                                        updateSlot(slot.id, 'days', newDays);
                                      }} className="w-4 h-4 accent-blue-600 cursor-pointer" />
-                                   <span className="text-gray-700">星期{['一','二','三','四','五'][d-1]}</span>
+                                   <span className="text-xs sm:text-sm text-gray-700">星{['一','二','三','四','五'][d-1]}</span>
                                  </label>
                                ))}
                              </div>
@@ -555,33 +449,19 @@
                 </div>
               )}
 
-              {/* 新增的系統維護分頁 */}
               {settingTab === 'system' && (
                 <div>
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-red-700">
-                    <Icons.AlertTriangle size={22} /> 系統維護與空間清理
+                  <h3 className="text-base sm:text-lg font-bold mb-4 flex items-center gap-2 text-red-700">
+                    <Icons.AlertTriangle size={20} /> 空間清理
                   </h3>
-                  <div className="bg-red-50 border border-red-200 p-6 rounded-xl shadow-sm">
-                    <p className="text-gray-700 mb-6 leading-relaxed">
-                      隨著學年推移，累積過多的歷史調堂記錄會導致網頁載入速度變慢。建議您每學期或每學年結束後，清理不需要的舊記錄。
-                      <br/><span className="font-bold text-red-600">注意：刪除後的資料無法復原，請確保您不再需要這些舊資料。</span>
+                  <div className="bg-red-50 border border-red-200 p-4 sm:p-6 rounded-xl shadow-sm">
+                    <p className="text-xs sm:text-sm text-gray-700 mb-4 sm:mb-6 leading-relaxed">
+                      刪除舊記錄可以讓系統在手機上跑得更順暢。<br/><span className="font-bold text-red-600">注意：刪除後無法復原。</span>
                     </p>
-                    
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white p-4 rounded-lg border border-red-100">
-                      <label className="text-sm font-bold text-gray-700 shrink-0">
-                        永久刪除 <span className="text-red-600">此日期之前</span> 的所有記錄：
-                      </label>
-                      <input 
-                        type="date" 
-                        value={cleanupDate}
-                        onChange={(e) => setCleanupDate(e.target.value)}
-                        className="border p-2.5 rounded outline-none focus:ring-2 focus:ring-red-400 bg-gray-50 w-full sm:w-auto"
-                      />
-                      <button 
-                        onClick={handleCleanupRecords}
-                        className="bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 shadow-md transition-colors w-full sm:w-auto flex items-center justify-center gap-2">
-                        <Icons.Trash2 size={18} /> 執行清理
-                      </button>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-white p-3 sm:p-4 rounded-lg border border-red-100">
+                      <label className="text-xs sm:text-sm font-bold text-gray-700 shrink-0">永久刪除此日期之前的記錄：</label>
+                      <input type="date" value={cleanupDate} onChange={(e) => setCleanupDate(e.target.value)} className="border p-2 rounded outline-none focus:ring-2 focus:ring-red-400 bg-gray-50 w-full sm:w-auto text-sm"/>
+                      <button onClick={handleCleanupRecords} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-700 text-sm w-full sm:w-auto flex justify-center items-center gap-2"><Icons.Trash2 size={16} /> 執行清理</button>
                     </div>
                   </div>
                 </div>
@@ -591,133 +471,151 @@
         </div>
       );
 
-      const renderRecordModal = () => {
-        if (!isModalOpen) return null;
-        return (
-          <RecordModalForm 
-            editingRecord={editingRecord} 
-            selectedSlotInfo={selectedSlotInfo}
-            teachers={teachers}
-            classes={classes}
-            Icons={Icons}
-            onClose={() => setIsModalOpen(false)}
-            onSave={saveRecord}
-            onDelete={deleteRecord}
-          />
-        );
-      };
-
       return (
         <div className="flex flex-col h-screen w-full bg-gray-100 font-sans overflow-hidden">
           {renderHeader()}
           {activeTab === 'calendar' ? renderCalendarView() : renderSettingsView()}
-          {renderPasswordModal()}
-          {renderRecordModal()}
+          
+          {showPwdModal && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+                <div className="bg-[#1e2336] text-white p-3 sm:p-4 flex items-center gap-2">
+                  <Icons.Lock size={18} /><h3 className="font-bold text-base sm:text-lg">安全驗證</h3>
+                  <button onClick={() => setShowPwdModal(false)} className="ml-auto hover:bg-slate-700 p-1.5 rounded"><Icons.X size={18}/></button>
+                </div>
+                <form onSubmit={verifyPassword} className="p-5 sm:p-6">
+                  <input type="password" value={pwdInput} onChange={(e) => { setPwdInput(e.target.value); setPwdError(''); }} placeholder="請輸入設定密碼" className={`w-full border p-3 rounded-lg text-center tracking-widest text-lg outline-none focus:ring-2 ${pwdError ? 'border-red-500 focus:ring-red-200' : 'focus:ring-blue-500'}`}/>
+                  {pwdError && <p className="text-red-500 text-xs font-bold mt-2 text-center">{pwdError}</p>}
+                  <div className="mt-5 flex gap-3">
+                    <button type="button" onClick={() => setShowPwdModal(false)} className="flex-1 py-2 border rounded-lg text-gray-700 font-bold hover:bg-gray-50 text-sm">取消</button>
+                    <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 text-sm">確認</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {isModalOpen && (
+            <RecordModalForm 
+              editingRecord={editingRecord} selectedSlotInfo={selectedSlotInfo} teachers={teachers} classes={classes} Icons={Icons}
+              onClose={() => setIsModalOpen(false)} onSave={saveRecord} onDelete={deleteRecord}
+            />
+          )}
         </div>
       );
     }
 
+    // --- Modal Component ---
     function RecordModalForm({ editingRecord, selectedSlotInfo, teachers, classes, Icons, onClose, onSave, onDelete }) {
-      const [entries, setEntries] = useState(
-        editingRecord ? editingRecord.entries : [{ teacher: '', class: '', customTeacher: '', customClass: '' }, { teacher: '', class: '', customTeacher: '', customClass: '' }]
-      );
+      
+      // 修復：初始化時，強制作出最少兩個填寫欄位 (原任 / 代課)
+      const getInitialEntries = () => {
+        if (editingRecord && editingRecord.entries.length > 0) {
+          const arr = [...editingRecord.entries];
+          // 如果編輯舊資料只有一筆，自動補第二筆空欄位方便填寫代課
+          while(arr.length < 2) arr.push({ teacher: '', class: '', customTeacher: '', customClass: '' });
+          return arr;
+        }
+        return [
+          { teacher: '', class: '', customTeacher: '', customClass: '' },
+          { teacher: '', class: '', customTeacher: '', customClass: '' }
+        ];
+      };
+
+      const [entries, setEntries] = useState(getInitialEntries());
       const [note, setNote] = useState(editingRecord ? editingRecord.note : '');
       const [errorMsg, setErrorMsg] = useState('');
       const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
       const handleEntryChange = (index, field, value) => {
-        const newEntries = [...entries];
-        newEntries[index][field] = value;
-        setEntries(newEntries);
+        const newEntries = [...entries]; newEntries[index][field] = value; setEntries(newEntries);
       };
-
       const addEntry = () => setEntries([...entries, { teacher: '', class: '', customTeacher: '', customClass: '' }]);
 
       const handleSubmit = (e) => {
-        e.preventDefault();
-        setErrorMsg('');
+        e.preventDefault(); setErrorMsg('');
         const processedEntries = entries.map(entry => ({
           teacher: entry.teacher === '其他' ? entry.customTeacher : entry.teacher,
           class: entry.class === '其他' ? entry.customClass : entry.class
         })).filter(entry => entry.teacher && entry.class);
-
-        if (processedEntries.length === 0) {
-          setErrorMsg('請至少填寫一位老師及班別！');
-          return;
-        }
+        
+        if (processedEntries.length === 0) { setErrorMsg('請至少完整填寫原任老師及班別！'); return; }
         onSave({ entries: processedEntries, note });
       };
 
       return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-full">
-            <div className="bg-blue-600 text-white p-4 flex justify-between items-center shrink-0">
-              <h3 className="font-bold text-lg tracking-wide">{editingRecord ? '編輯調堂記錄' : '新增調堂記錄'}</h3>
-              <button onClick={onClose} className="hover:bg-blue-700 p-1 rounded transition-colors"><Icons.X /></button>
+        <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[100] p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white sm:rounded-xl rounded-t-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] sm:max-h-full animate-[slideUp_0.2s_ease-out]">
+            <div className="bg-blue-600 text-white p-3 sm:p-4 flex justify-between items-center shrink-0 rounded-t-2xl sm:rounded-t-xl">
+              <h3 className="font-bold text-base sm:text-lg">{editingRecord ? '編輯調堂記錄' : '新增調堂記錄'}</h3>
+              <button onClick={onClose} className="hover:bg-blue-700 p-1.5 rounded"><Icons.X size={20}/></button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-5 overflow-y-auto">
-              <div className="mb-5 text-sm text-blue-800 font-bold bg-blue-50 p-2.5 rounded-lg border border-blue-100 flex items-center">
-                <Icons.Calendar className="mr-2" size={16} />
-                {editingRecord ? editingRecord.date : selectedSlotInfo?.date}
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto flex-1">
+              <div className="mb-4 text-xs sm:text-sm text-blue-800 font-bold bg-blue-50 p-2.5 rounded-lg border border-blue-100 flex items-center">
+                <Icons.Calendar className="mr-2" size={16} /> {editingRecord ? editingRecord.date : selectedSlotInfo?.date}
               </div>
 
               {entries.map((entry, index) => (
-                <div key={index} className="mb-4 p-4 border rounded-xl bg-gray-50/50 relative border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
-                    <span className="bg-gray-200 text-gray-600 rounded-full w-5 h-5 flex items-center justify-center text-xs mr-2">{index + 1}</span>
-                    教師資料 {index === 0 ? <span className="text-red-500 ml-1">*</span> : <span className="text-xs font-normal text-gray-400 ml-2">(非必填)</span>}
+                <div key={index} className="mb-3 p-3 sm:p-4 border rounded-xl bg-gray-50/50 relative border-gray-200">
+                  <h4 className="text-xs sm:text-sm font-bold text-gray-700 mb-2.5 flex items-center">
+                    <span className={`text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs mr-2 ${index === 0 ? 'bg-blue-500' : 'bg-emerald-500'}`}>
+                      {index + 1}
+                    </span>
+                    {/* 修復：加上清楚的標示文字 */}
+                    {index === 0 ? '原任教師' : index === 1 ? '代課 / 調堂教師 (選填)' : `教師 ${index + 1}`}
+                    {index === 0 && <span className="text-red-500 ml-1">*</span>}
                   </h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1.5">教師</label>
-                      <select value={entry.teacher} onChange={(e) => handleEntryChange(index, 'teacher', e.target.value)} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                      <label className="block text-[10px] sm:text-xs font-bold text-gray-500 mb-1">教師</label>
+                      <select value={entry.teacher} onChange={(e) => handleEntryChange(index, 'teacher', e.target.value)} className="w-full border p-2 rounded-lg text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                         <option value="">請選擇</option>
                         {teachers.map(t => <option key={t.id} value={t.shortName}>{t.name}</option>)}
                         <option value="其他">其他...</option>
                       </select>
-                      {entry.teacher === '其他' && <input type="text" placeholder="自行填寫" value={entry.customTeacher} onChange={(e) => handleEntryChange(index, 'customTeacher', e.target.value)} className="w-full border p-2 rounded-lg text-sm mt-2 focus:ring-2 focus:ring-blue-500 outline-none"/>}
+                      {entry.teacher === '其他' && <input type="text" placeholder="自行填寫" value={entry.customTeacher} onChange={(e) => handleEntryChange(index, 'customTeacher', e.target.value)} className="w-full border p-2 rounded-lg text-xs mt-1.5 outline-none focus:ring-2 focus:ring-blue-500"/>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1.5">調往班別</label>
-                      <select value={entry.class} onChange={(e) => handleEntryChange(index, 'class', e.target.value)} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                      <label className="block text-[10px] sm:text-xs font-bold text-gray-500 mb-1">班別</label>
+                      <select value={entry.class} onChange={(e) => handleEntryChange(index, 'class', e.target.value)} className="w-full border p-2 rounded-lg text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                         <option value="">請選擇</option>
                         {classes.map(c => <option key={c} value={c}>{c}</option>)}
                         <option value="其他">其他...</option>
                       </select>
-                      {entry.class === '其他' && <input type="text" placeholder="自行填寫" value={entry.customClass} onChange={(e) => handleEntryChange(index, 'customClass', e.target.value)} className="w-full border p-2 rounded-lg text-sm mt-2 focus:ring-2 focus:ring-blue-500 outline-none"/>}
+                      {entry.class === '其他' && <input type="text" placeholder="自行填寫" value={entry.customClass} onChange={(e) => handleEntryChange(index, 'customClass', e.target.value)} className="w-full border p-2 rounded-lg text-xs mt-1.5 outline-none focus:ring-2 focus:ring-blue-500"/>}
                     </div>
                   </div>
                 </div>
               ))}
 
-              <button type="button" onClick={addEntry} className="w-full py-2.5 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 mb-5 flex items-center justify-center transition-colors">
-                <Icons.Plus className="mr-1" /> 新增更多老師
+              <button type="button" onClick={addEntry} className="w-full py-2.5 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-xs sm:text-sm font-bold hover:bg-blue-50 mb-4 flex items-center justify-center transition-colors">
+                <Icons.Plus className="mr-1" /> 加入第三位老師 (極少用)
               </button>
 
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-700 mb-2">備註</label>
-                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="如：代課、開會..." className="w-full border border-gray-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+              <div className="mb-4">
+                <label className="block text-xs sm:text-sm font-bold text-gray-700 mb-1.5">備註 (選填)</label>
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="如：代課、開會..." className="w-full border p-2 sm:p-2.5 rounded-lg text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"/>
               </div>
 
-              {errorMsg && <div className="text-red-500 text-sm font-bold mb-3 bg-red-50 p-2 rounded">{errorMsg}</div>}
+              {errorMsg && <div className="text-red-500 text-xs sm:text-sm font-bold mb-3 bg-red-50 p-2 rounded">{errorMsg}</div>}
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t mt-auto">
                 {editingRecord && (
                   isConfirmingDelete ? (
-                    <div className="flex items-center gap-2 mr-auto bg-red-50 p-1.5 rounded-lg border border-red-100">
-                      <span className="text-xs text-red-600 font-bold px-1">確定刪除？</span>
-                      <button type="button" onClick={() => onDelete(editingRecord.id)} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-bold hover:bg-red-700 shadow-sm transition-colors">是</button>
-                      <button type="button" onClick={() => setIsConfirmingDelete(false)} className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs font-bold hover:bg-gray-300 shadow-sm transition-colors">否</button>
+                    <div className="flex items-center gap-1.5 mr-auto bg-red-50 p-1 rounded-lg border border-red-100">
+                      <span className="text-[10px] sm:text-xs text-red-600 font-bold px-1">確定？</span>
+                      <button type="button" onClick={() => onDelete(editingRecord.id)} className="px-2.5 py-1 bg-red-600 text-white rounded text-[10px] sm:text-xs font-bold">是</button>
+                      <button type="button" onClick={() => setIsConfirmingDelete(false)} className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded text-[10px] sm:text-xs font-bold">否</button>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setIsConfirmingDelete(true)} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 mr-auto flex items-center transition-colors">
-                      <Icons.Trash2 className="mr-1"/> 刪除
+                    <button type="button" onClick={() => setIsConfirmingDelete(true)} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 text-red-600 rounded-lg text-xs sm:text-sm font-bold mr-auto flex items-center">
+                      <Icons.Trash2 className="mr-1" size={14}/> 刪除
                     </button>
                   )
                 )}
-                <button type="button" onClick={onClose} className="px-5 py-2 border border-gray-300 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors">取消</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-md transition-colors">儲存記錄</button>
+                <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg text-xs sm:text-sm font-bold text-gray-600 bg-white">取消</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md">儲存</button>
               </div>
             </form>
           </div>
@@ -725,7 +623,6 @@
       );
     }
 
-    // --- 初始化渲染引擎 ---
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
