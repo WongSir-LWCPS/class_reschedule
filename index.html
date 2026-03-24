@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>樂華天主教小學 - 調堂記錄表 v3.4</title>
+  <title>樂華天主教小學 - 調堂記錄表 v4.1</title>
   
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -16,6 +16,36 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .smooth-scroll { scroll-behavior: smooth; }
   </style>
+
+  <script>
+  // 1. 請確認這裡是您真實的 API 網址 (與您原本程式碼中的 API_URL 相同)
+  const PREFETCH_API_URL = 'https://script.google.com/macros/s/AKfycbz...這裡填寫您的API網址.../exec';
+
+  // 2. 網頁一開始解析，就立刻在背景偷抓資料 (提早起跑)
+  window.__prefetchedResponse = fetch(PREFETCH_API_URL + '?action=getRecords')
+    .then(res => res.clone()) // 複製一份 Response，避免被讀取兩次出錯
+    .catch(err => console.warn('預載失敗，稍後將正常請求:', err));
+
+  // 3. 攔截器：當 React 呼叫 fetch 時，攔截它！
+  const originalFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const requestUrl = args[0];
+    
+    // 如果發現 React 正在請求 getRecords，而且我們已經有提早抓好的資料
+    if (typeof requestUrl === 'string' && 
+        requestUrl.includes('action=getRecords') && 
+        window.__prefetchedResponse) {
+        
+      console.log("🚀 攔截成功！直接餵給 React 預載的資料，實現秒開！");
+      const res = await window.__prefetchedResponse;
+      window.__prefetchedResponse = null; // 用過就清空，確保之後的「重新整理」能抓到最新資料
+      return res.clone();
+    }
+    
+    // 如果是其他請求，就乖乖放行，照常執行
+    return originalFetch.apply(this, args);
+  };
+</script>
 </head>
 <body>
   
