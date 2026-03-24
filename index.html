@@ -306,7 +306,7 @@
                                  onClick={(e) => { e.stopPropagation(); openEditModal(record); }}
                                  className={`px-1.5 py-1.5 sm:px-2 sm:py-2 text-xs sm:text-sm rounded border shadow-sm ${record.color} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}>
                               <div className="font-bold leading-snug flex flex-wrap items-center">
-                                {/* 日曆顯示優化：使用箭頭連接多位教師 */}
+                                {/* 日曆顯示優化：使用「,」連接多位教師 */}
                                 {record.entries.map((entry, i) => (
                                   <span key={i} className="flex items-center">
                                     {entry.teacher}({entry.class})
@@ -319,8 +319,9 @@
                           ))}
 
                           <div onClick={(e) => { e.stopPropagation(); openAddModal(day, slot.id); }}
-                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
-                                         ${cellRecords.length > 0 ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100 opacity-100'}`}>
+                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
+               ${cellRecords.length > 0 ? 'flex opacity-100' : 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100'}`}>
+  <Icons.Plus size={14} />
                             <Icons.Plus size={14} />
                           </div>
                         </div>
