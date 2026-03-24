@@ -319,9 +319,8 @@
                           ))}
 
                           <div onClick={(e) => { e.stopPropagation(); openAddModal(day, slot.id); }}
-                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
-               ${cellRecords.length > 0 ? 'flex opacity-100' : 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100'}`}>
-  <Icons.Plus size={14} />
+                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
+                                         ${cellRecords.length > 0 ? 'opacity-100' : 'sm:opacity-0 sm:group-hover:opacity-100 opacity-100'}`}>
                             <Icons.Plus size={14} />
                           </div>
                         </div>
