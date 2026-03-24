@@ -257,22 +257,28 @@
 
       const renderCalendarView = () => {
         const daysOfWeek = ['日', '一', '二', '三', '四', '五', '六'];
+        
+        // 【修改 1】將手機版的 minmax(100px,1fr) 改成 minmax(0,1fr)
+        // 並將第一欄節數在手機版的寬度從 4.5rem 稍微縮減到 3.5rem (56px) 節省空間
         const gridColsClass = viewMode === 'week' 
-          ? 'grid-cols-[4.5rem_repeat(5,minmax(50px,1fr))] sm:grid-cols-[5.5rem_repeat(5,minmax(0,1fr))]' 
-          : 'grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_minmax(0,1fr)]';
+          ? 'grid-cols-[3.5rem_repeat(5,minmax(0,1fr))] sm:grid-cols-[5.5rem_repeat(5,minmax(0,1fr))]' 
+          : 'grid-cols-[3.5rem_minmax(0,1fr)] sm:grid-cols-[5.5rem_minmax(0,1fr)]';
 
         return (
+          // 將 overflow-x-auto 保持，萬一內容真的太多還是可以滑，但基本上不會再破版
           <div className="flex-1 overflow-x-auto overflow-y-auto bg-gray-50 smooth-scroll relative">
-            <div className="bg-white min-h-full sm:min-w-0 min-w-max flex flex-col">
+            
+            {/* 【修改 2】刪除 min-w-max，統一使用 w-full 和 min-w-0，允許手機版隨意縮小 */}
+            <div className="bg-white min-h-full w-full min-w-0 flex flex-col">
               
               <div className={`grid border-b bg-blue-600 text-white sticky top-0 z-30 shadow-sm ${gridColsClass}`}>
-                <div className="border-r border-blue-500 p-2 text-center font-bold flex flex-col justify-center sticky left-0 z-40 bg-blue-700 text-sm sm:text-base">
+                <div className="border-r border-blue-500 p-1 sm:p-2 text-center font-bold flex flex-col justify-center sticky left-0 z-40 bg-blue-700 text-xs sm:text-base min-w-0 break-words">
                   節數
                 </div>
                 {displayedDays.map(day => (
-                  <div key={day.toString()} className="border-r border-blue-500 p-2 sm:p-3 text-center min-w-0">
-                    <div className="text-xs sm:text-sm font-medium opacity-90">星期{daysOfWeek[day.getDay()]}</div>
-                    <div className="text-xl sm:text-2xl font-black">{day.getDate()}</div>
+                  <div key={day.toString()} className="border-r border-blue-500 p-1 sm:p-3 text-center min-w-0">
+                    <div className="text-[10px] sm:text-sm font-medium opacity-90 truncate">星期{daysOfWeek[day.getDay()]}</div>
+                    <div className="text-base sm:text-2xl font-black">{day.getDate()}</div>
                   </div>
                 ))}
               </div>
@@ -281,9 +287,9 @@
                 {slots.map((slot) => (
                   <div key={slot.id} className={`grid border-b min-h-[80px] sm:min-h-[90px] ${gridColsClass}`}>
                     
-                    <div className="border-r p-1 sm:p-2 flex flex-col items-center justify-center bg-gray-50 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] border-r-gray-200">
-                      <span className="font-bold text-xs sm:text-sm text-slate-700 text-center leading-tight">{slot.name}</span>
-                      <span className="text-[10px] sm:text-xs text-slate-500 text-center mt-1 scale-90 sm:scale-100">{slot.time}</span>
+                    <div className="border-r p-1 flex flex-col items-center justify-center bg-gray-50 sticky left-0 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.03)] border-r-gray-200 min-w-0">
+                      <span className="font-bold text-[10px] sm:text-sm text-slate-700 text-center leading-tight break-words">{slot.name}</span>
+                      <span className="text-[9px] sm:text-xs text-slate-500 text-center mt-0.5">{slot.time}</span>
                     </div>
 
                     {displayedDays.map(day => {
@@ -298,30 +304,29 @@
 
                       return (
                         <div key={dateStr} 
-                             className="border-r p-1.5 sm:p-2 relative group hover:bg-blue-50/50 transition-colors flex flex-col gap-1.5 cursor-pointer min-w-0 h-full"
+                             className="border-r p-1 sm:p-2 relative group hover:bg-blue-50/50 transition-colors flex flex-col gap-1 cursor-pointer min-w-0 h-full"
                              onClick={(e) => { if(e.target === e.currentTarget) openAddModal(day, slot.id); }}>
                           
                           {cellRecords.map(record => (
                             <div key={record.id} 
                                  onClick={(e) => { e.stopPropagation(); openEditModal(record); }}
-                                 className={`px-1.5 py-1.5 sm:px-2 sm:py-2 text-xs sm:text-sm rounded border shadow-sm ${record.color} cursor-pointer hover:opacity-80 active:scale-95 transition-all`}>
-                              <div className="font-bold leading-snug flex flex-wrap items-center">
-                                {/* 日曆顯示優化：使用「,」連接多位教師 */}
+                                 className={`p-1 sm:px-2 sm:py-2 text-[10px] sm:text-sm rounded border shadow-sm ${record.color} cursor-pointer hover:opacity-80 active:scale-95 transition-all w-full overflow-hidden`}>
+                              <div className="font-bold leading-tight flex flex-wrap items-center gap-x-0.5">
                                 {record.entries.map((entry, i) => (
-                                  <span key={i} className="flex items-center">
+                                  <span key={i} className="flex items-center break-all">
                                     {entry.teacher}({entry.class})
                                     {i < record.entries.length - 1 && <span>,</span>}
                                   </span>
                                 ))}
                               </div>
-                              {record.note && <div className="text-[10px] sm:text-xs opacity-80 mt-1 truncate">{record.note}</div>}
+                              {record.note && <div className="text-[9px] sm:text-xs opacity-80 mt-0.5 truncate w-full">{record.note}</div>}
                             </div>
                           ))}
 
                           <div onClick={(e) => { e.stopPropagation(); openAddModal(day, slot.id); }}
-                               className={`w-full h-8 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
+                               className={`w-full h-6 sm:h-10 border border-dashed border-gray-300 rounded bg-gray-50/50 text-gray-400 items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all cursor-pointer mt-auto
                                      ${cellRecords.length > 0 ? 'flex opacity-100' : 'hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100'}`}>
-                            <Icons.Plus size={14} />
+                            <Icons.Plus size={12} />
                           </div>
                         </div>
                       );
