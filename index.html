@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>樂華天主教小學 - 調堂記錄表 v4</title>
+  <title>樂華天主教小學 - 調堂記錄表 v5</title>
   
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -15,11 +15,42 @@
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .smooth-scroll { scroll-behavior: smooth; }
+
+     .native-loader-container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f3f4f6;
+    }
+    .native-spinner {
+      width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top: 4px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    
   </style>
+
+<script>
+    // ⚠️ 記得把下面的網址換成您最新的 Google Apps Script 網址
+    window.MY_API_URL = 'https://script.google.com/macros/s/AKfycbxU8yVS26vvDdbFo--pBhZ8C31AKH01DM8pX3MNIANYAFd6eTIn6Js0pAXPdKI3lZwTjA/exec';
+    
+    // 網頁一讀取，立刻在背景聯絡 Google 拿資料 (不浪費時間等 React 載入)
+    window.earlyFetchPromise = fetch(window.MY_API_URL + '?action=getRecords')
+      .then(res => res.json())
+      .catch(err => {
+        console.error('提早請求失敗:', err);
+        return null;
+      });
+  </script>
+
 </head>
 <body>
   
-  <div id="root"></div>
+  <div id="root">
+    <!-- 在 React 編譯完成前，先顯示這個原生的 HTML 載入畫面 -->
+    <div class="native-loader-container">
+      <div class="native-spinner"></div>
+      <div style="color: #4b5563; font-weight: bold; font-size: 15px; letter-spacing: 1px;">樂華天主教小學</div>
+      <div style="color: #9ca3af; font-size: 13px; margin-top: 6px;">載入最新資料中...</div>
+    </div>
+  </div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
@@ -55,6 +86,8 @@
 
       const [currentDate, setCurrentDate] = useState(new Date());
       const [viewMode, setViewMode] = useState('week'); 
+      // 1. 新增循環周數據狀態
+      const [dayMappings, setDayMappings] = useState({});
       const [activeTab, setActiveTab] = useState('calendar'); 
       
       const [teachers, setTeachers] = useState([{ id: 1, name: '陳大文', shortName: '陳' }]);
@@ -77,6 +110,7 @@
       const [showPwdModal, setShowPwdModal] = useState(false);
       const [pwdInput, setPwdInput] = useState('');
       const [pwdError, setPwdError] = useState('');
+      
 
       // --- 資料載入 ---
       useEffect(() => {
@@ -89,6 +123,7 @@
               if (res.data.slots?.length > 0) setSlots(res.data.slots);
               if (res.data.teachers?.length > 0) setTeachers(res.data.teachers);
               if (res.data.classes?.length > 0) setClasses(res.data.classes);
+              if (res.data.dayMappings) setDayMappings(res.data.dayMappings);
             }
           })
           .catch(err => console.error("資料載入失敗", err))
@@ -117,6 +152,14 @@
         };
       }, [viewMode]);
 
+      // 3. 新增單一日期 Day 的更新與同步函數
+const updateDayMapping = (dateStr, dayValue) => {
+  const newMappings = { ...dayMappings, [dateStr]: dayValue };
+  setDayMappings(newMappings);
+  syncToCloud('dayMappings', newMappings);
+};
+
+      
       // --- 日曆運算 ---
       const getStartOfWeek = (date) => {
         const d = new Date(date);
@@ -271,12 +314,27 @@
           <div className="border-r border-blue-500 p-1 sm:p-2 text-center font-bold flex flex-col justify-center sticky left-0 z-40 bg-blue-700 text-xs sm:text-base min-w-0 break-words">
             節數
           </div>
-          {displayedDays.map(day => (
-            <div key={day.toString()} className="border-r border-blue-500 p-1 sm:p-2 text-center min-w-0">
-              <div className="text-[10px] sm:text-sm font-medium opacity-90 truncate">星期{daysOfWeek[day.getDay()]}</div>
-              <div className="text-base sm:text-xl font-black">{day.getDate()}</div>
-            </div>
-          ))}
+          {displayedDays.map(day => {
+  const dateStr = formatDateStr(day);
+  const currentDayLabel = dayMappings[dateStr] || '未設定';
+
+  return (
+    <div key={day.toString()} className="border-r border-blue-500 p-1 sm:p-2 text-center min-w-0 flex flex-col items-center justify-center">
+      <div className="text-[10px] sm:text-sm font-medium opacity-90 truncate">星期{daysOfWeek[day.getDay()]}</div>
+      <div className="text-base sm:text-xl font-black">{day.getDate()}</div>
+      
+      {/* 新增：顯示循環 Day (Day1-Day6 / TD / E) */}
+      <div className={`mt-1 px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded-full shadow-inner ${
+        currentDayLabel === '未設定' 
+          ? 'bg-blue-800/50 text-blue-200' 
+          : 'bg-yellow-400 text-blue-950'
+      }`}>
+        {currentDayLabel}
+      </div>
+    </div>
+  );
+})}
+
         </div>
 
         <div className="flex flex-col flex-1">
@@ -344,12 +402,14 @@
         <div className="flex-1 overflow-y-auto bg-gray-50 p-2 sm:p-4">
           <div className="max-w-4xl mx-auto bg-white rounded-lg sm:rounded-xl shadow-sm border overflow-hidden">
             <div className="flex border-b bg-gray-100 overflow-x-auto hide-scrollbar scroll-smooth">
-              {['teachers', 'classes', 'slots', 'system'].map(tab => (
-                <button key={tab} onClick={() => setSettingTab(tab)}
-                        className={`flex-none w-1/4 min-w-[80px] sm:min-w-[100px] py-3 text-xs sm:text-sm font-bold text-center border-r last:border-0 transition-colors ${settingTab === tab ? 'bg-white text-blue-600 border-b-2 border-b-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}>
-                  {tab === 'teachers' ? '教師' : tab === 'classes' ? '班別' : tab === 'slots' ? '課節' : '維護'}
-                </button>
-              ))}
+              {['teachers', 'classes', 'slots', 'days', 'system'].map(tab => (
+  <button key={tab} onClick={() => setSettingTab(tab)}
+          className={`flex-none w-1/5 min-w-[70px] sm:min-w-[90px] py-3 text-xs sm:text-sm font-bold text-center border-r last:border-0 transition-colors ${settingTab === tab ? 'bg-white text-blue-600 border-b-2 border-b-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}>
+    {tab === 'teachers' ? '教師' : tab === 'classes' ? '班別' : tab === 'slots' ? '課節' : tab === 'days' ? '循環周' : '維護'}
+  </button>
+))}
+
+
             </div>
 
             <div className="p-4 sm:p-6">
@@ -451,6 +511,39 @@
                    </div>
                 </div>
               )}
+
+{settingTab === 'days' && (
+  <div>
+    <h3 className="text-base sm:text-lg font-bold mb-2">設定循環周 (Day 1 - Day 6 / TD / E)</h3>
+    <p className="text-xs sm:text-sm text-gray-500 mb-4">您可以直接選擇本週各個日期的 Day 屬性，變更後會自動同步至雲端。</p>
+    
+    <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-gray-50 p-3 sm:p-4 rounded-lg border">
+      {currentWeekDays.map(day => {
+        const dStr = formatDateStr(day);
+        const dayOptions = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'TD', 'E'];
+        return (
+          <div key={dStr} className="bg-white p-3 rounded-lg border shadow-sm flex flex-col items-center">
+            <span className="text-xs font-bold text-gray-500">{dStr}</span>
+            <span className="text-sm font-bold text-gray-800 my-1">星期{['日','一','二','三','四','五','六'][day.getDay()]}</span>
+            
+            <select 
+              value={dayMappings[dStr] || ''} 
+              onChange={(e) => updateDayMapping(dStr, e.target.value)}
+              className="w-full mt-2 border p-1.5 rounded-md text-xs sm:text-sm font-bold text-blue-700 bg-blue-50 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">-- 請選擇 --</option>
+              {dayOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+
+
 
               {settingTab === 'system' && (
                 <div>
